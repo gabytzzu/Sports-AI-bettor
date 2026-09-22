@@ -16,6 +16,18 @@ from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+# Base URL corect pentru API-Sports / API-Football
+API_SPORTS_BASE_URL = "https://v3.football.api-sports.io"
+
+# Mapare între denumiri prietenoase de ligi și ID-urile numerice oficiale API-Sports
+LEAGUE_MAPPING = {
+    "premier_league": 39,
+    "la_liga": 140,
+    "serie_a": 135,
+    "bundesliga": 78,
+    "ligue_1": 61,
+}
+
 
 class APIClient:
     """Robust API client with retry logic and caching."""
@@ -75,7 +87,7 @@ class APIClient:
             logger.error(f"Connection error: {e}")
             return None
         except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error {response.status_code}: {e}")
+            logger.error(f"HTTP error {e}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error fetching {url}: {e}")
@@ -123,13 +135,16 @@ class SportsDataFetcher:
         
         Args:
             sport: Sport type (default: soccer)
-            league: League identifier
+            league: League identifier or integer ID
             season: Season year
             
         Returns:
             DataFrame with fixture data
         """
-        cache_key = self._get_cache_key("fixtures", sport, league, season)
+        # Se convertește denumirea ligii în ID numeric dacă este transmisă ca text
+        league_id = LEAGUE_MAPPING.get(league, league)
+
+        cache_key = self._get_cache_key("fixtures", sport, league_id, season)
         
         # Check cache
         if settings.CACHE_ENABLED:
@@ -137,35 +152,37 @@ class SportsDataFetcher:
             if cached is not None:
                 return cached
 
-        url = f"https://api.api-sports.io/v3/fixtures"
+        url = f"{API_SPORTS_BASE_URL}/fixtures"
         params = {
-            "league": league,
+            "league": league_id,
             "season": season,
-            "status": "NOT_STARTED"
+            "status": "NS"  # 'NS' = Not Started în API-Sports
         }
         headers = {"x-apisports-key": settings.API_SPORTS_KEY}
 
         data = self.api_client.get(url, headers=headers, params=params)
         
         if not data or "response" not in data:
-            logger.warning(f"No fixtures data returned for {league}")
+            logger.warning(f"No fixtures data returned for league {league} (ID: {league_id})")
             return pd.DataFrame()
 
         try:
             fixtures = []
-            for fixture in data.get("response", []):
+            for item in data.get("response", []):
+                fixture_info = item.get("fixture", {})
+                teams_info = item.get("teams", {})
                 fixtures.append({
-                    "fixture_id": fixture.get("id"),
-                    "date": fixture.get("fixture", {}).get("date"),
-                    "status": fixture.get("fixture", {}).get("status"),
-                    "home_team": fixture.get("teams", {}).get("home", {}).get("name"),
-                    "away_team": fixture.get("teams", {}).get("away", {}).get("name"),
-                    "home_team_id": fixture.get("teams", {}).get("home", {}).get("id"),
-                    "away_team_id": fixture.get("teams", {}).get("away", {}).get("id"),
+                    "fixture_id": fixture_info.get("id"),
+                    "date": fixture_info.get("date"),
+                    "status": fixture_info.get("status", {}).get("short"),
+                    "home_team": teams_info.get("home", {}).get("name"),
+                    "away_team": teams_info.get("away", {}).get("name"),
+                    "home_team_id": teams_info.get("home", {}).get("id"),
+                    "away_team_id": teams_info.get("away", {}).get("id"),
                 })
             
             df = pd.DataFrame(fixtures)
-            logger.info(f"Fetched {len(df)} fixtures for {league}")
+            logger.info(f"Fetched {len(df)} fixtures for league ID {league_id}")
             self._set_cache(cache_key, df)
             return df
             
@@ -240,7 +257,7 @@ class SportsDataFetcher:
             if cached is not None:
                 return cached
 
-        url = f"https://api.api-sports.io/v3/teams/statistics"
+        url = f"{API_SPORTS_BASE_URL}/teams/statistics"
         params = {
             "team": team_id,
             "season": season
