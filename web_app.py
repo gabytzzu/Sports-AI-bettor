@@ -8,6 +8,12 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from datetime import datetime
 
+import os
+import subprocess
+
+if not os.path.exists("models/sports_model.pkl"):
+    subprocess.run(["python", "train_fast.py"])
+
 from config.settings import settings
 from src.logger import setup_logger
 from src.data_fetch import get_fetcher
