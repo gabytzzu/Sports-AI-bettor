@@ -13,25 +13,53 @@ import sys
 import subprocess
 import pandas as pd
 
-# 1. Creăm folderul data și un fișier de date de test dacă nu există
+# 1. Ne asigurăm că există directorul data
 if not os.path.exists("data"):
     os.makedirs("data")
 
-if not os.path.exists("data/historical_matches.csv"):
-    # Generăm un set minim de date pentru a permite antrenarea modelului
-    dummy_data = {
-        "home_team": ["Team A", "Team B", "Team C", "Team D"],
-        "away_team": ["Team C", "Team D", "Team A", "Team B"],
-        "home_score": [2, 1, 0, 3],
-        "away_score": [1, 1, 2, 0],
-        "result": ["H", "D", "A", "H"],
-        "home_odds": [1.8, 3.2, 2.5, 1.5],
-        "draw_odds": [3.4, 3.1, 3.2, 4.0],
-        "away_odds": [4.2, 2.2, 2.8, 6.0]
-    }
-    pd.DataFrame(dummy_data).to_csv("data/historical_matches.csv", index=False)
+csv_path = "data/historical_matches.csv"
 
-# 2. Rulăm antrenarea dacă modelul nu există încă
+# 2. Recreăm fișierul de date istorice cu toate coloanele necesare (inclusiv 'date')
+should_create = True
+if os.path.exists(csv_path):
+    try:
+        df_check = pd.read_csv(csv_path)
+        if 'date' in df_check.columns:
+            should_create = False
+    except Exception:
+        pass
+
+if should_create:
+    dummy_data = {
+        "date": [
+            "2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05", 
+            "2024-01-06", "2024-01-07", "2024-01-08", "2024-01-09", "2024-01-10",
+            "2024-01-11", "2024-01-12", "2024-01-13", "2024-01-14", "2024-01-15"
+        ],
+        "league": ["Premier League"] * 15,
+        "season": [2024] * 15,
+        "home_team": ["Team A", "Team B", "Team C", "Team D", "Team A", 
+                     "Team B", "Team C", "Team D", "Team A", "Team B",
+                     "Team C", "Team D", "Team A", "Team B", "Team C"],
+        "away_team": ["Team C", "Team D", "Team A", "Team B", "Team D", 
+                     "Team C", "Team B", "Team A", "Team B", "Team A",
+                     "Team D", "Team C", "Team C", "Team D", "Team A"],
+        "home_score": [2, 1, 0, 3, 1, 2, 0, 1, 3, 0, 1, 2, 1, 0, 2],
+        "away_score": [1, 1, 2, 0, 2, 0, 1, 1, 1, 2, 0, 1, 0, 1, 1],
+        "fthg": [2, 1, 0, 3, 1, 2, 0, 1, 3, 0, 1, 2, 1, 0, 2],
+        "ftag": [1, 1, 2, 0, 2, 0, 1, 1, 1, 2, 0, 1, 0, 1, 1],
+        "result": ["H", "D", "A", "H", "A", "H", "A", "D", "H", "A", "H", "H", "H", "A", "H"],
+        "ftr": ["H", "D", "A", "H", "A", "H", "A", "D", "H", "A", "H", "H", "H", "A", "H"],
+        "home_odds": [1.8, 3.2, 2.5, 1.5, 2.1, 1.9, 3.0, 2.4, 1.6, 3.5, 2.0, 1.7, 1.8, 3.1, 1.9],
+        "draw_odds": [3.4, 3.1, 3.2, 4.0, 3.3, 3.5, 3.2, 3.1, 3.8, 3.4, 3.3, 3.6, 3.5, 3.2, 3.4],
+        "away_odds": [4.2, 2.2, 2.8, 6.0, 3.1, 4.0, 2.3, 2.9, 5.5, 2.1, 3.8, 5.0, 4.3, 2.3, 3.9],
+        "b365h": [1.8, 3.2, 2.5, 1.5, 2.1, 1.9, 3.0, 2.4, 1.6, 3.5, 2.0, 1.7, 1.8, 3.1, 1.9],
+        "b365d": [3.4, 3.1, 3.2, 4.0, 3.3, 3.5, 3.2, 3.1, 3.8, 3.4, 3.3, 3.6, 3.5, 3.2, 3.4],
+        "b365a": [4.2, 2.2, 2.8, 6.0, 3.1, 4.0, 2.3, 2.9, 5.5, 2.1, 3.8, 5.0, 4.3, 2.3, 3.9]
+    }
+    pd.DataFrame(dummy_data).to_csv(csv_path, index=False)
+
+# 3. Rulăm antrenarea dacă modelul nu există încă pe server
 if not os.path.exists("models/sports_model.pkl"):
     subprocess.run([sys.executable, "train_fast.py"])
 
