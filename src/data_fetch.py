@@ -124,26 +124,14 @@ class SportsDataFetcher:
         if settings.CACHE_ENABLED:
             self._cache[key] = (value, time.time())
 
-    def fetch_fixtures(
+def fetch_fixtures(
         self,
         sport: str = "soccer",
         league: str = "premier_league",
         season: int = 2026
     ) -> pd.DataFrame:
-        """
-        Fetch upcoming fixtures from API.
-        
-        Args:
-            sport: Sport type (default: soccer)
-            league: League identifier or integer ID
-            season: Season year
-            
-        Returns:
-            DataFrame with fixture data
-        """
-        # Se convertește denumirea ligii în ID numeric dacă este transmisă ca text
+        """Fetch upcoming fixtures from API."""
         league_id = LEAGUE_MAPPING.get(league, league)
-
         cache_key = self._get_cache_key("fixtures", sport, league_id, season)
         
         # Check cache
@@ -153,17 +141,26 @@ class SportsDataFetcher:
                 return cached
 
         url = f"{API_SPORTS_BASE_URL}/fixtures"
+        
+        # Folosim parametrul 'next': 10 pentru a cere direct următoarele 10 meciuri viitoare
         params = {
             "league": league_id,
-            "season": season,
-            "status": "NS"  # 'NS' = Not Started în API-Sports
+            "next": 10
         }
         headers = {"x-apisports-key": settings.API_SPORTS_KEY}
 
         data = self.api_client.get(url, headers=headers, params=params)
         
-        if not data or "response" not in data:
-            logger.warning(f"No fixtures data returned for league {league} (ID: {league_id})")
+        if not data:
+            logger.warning(f"No data returned from API for league {league} (ID: {league_id})")
+            return pd.DataFrame()
+
+        # Afișăm în log-uri dacă API-ul a returnat o eroare de limită sau cheie greșită
+        if data.get("errors"):
+            logger.error(f"API Sports Error: {data.get('errors')}")
+
+        if "response" not in data or not data.get("response"):
+            logger.warning(f"No fixtures in response for league {league} (ID: {league_id})")
             return pd.DataFrame()
 
         try:
