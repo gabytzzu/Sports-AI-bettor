@@ -133,7 +133,7 @@ with tab1:
     
     with st.spinner("Loading fixtures..."):
         fetcher = get_fetcher()
-        fixtures_df = fetcher.fetch_fixtures(sport=sport, league=league)
+        fixtures_df = fetcher.fetch_fixtures(sport=sport, league=league, season=2026)
     
     if not fixtures_df.empty:
         # Format dates
