@@ -4,6 +4,7 @@ Handles fixture data and odds retrieval with caching, retries, and error handlin
 """
 
 import time
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 import requests
 import pandas as pd
@@ -94,7 +95,7 @@ class SportsDataFetcher:
         league: str = "premier_league",
         season: int = 2026
     ) -> pd.DataFrame:
-        """Fetch upcoming fixtures from API."""
+        """Fetch upcoming fixtures from API for Free Plan."""
         league_id = LEAGUE_MAPPING.get(league, league)
         cache_key = self._get_cache_key("fixtures", sport, league_id, season)
         
@@ -104,9 +105,16 @@ class SportsDataFetcher:
                 return cached
 
         url = f"{API_SPORTS_BASE_URL}/fixtures"
+        
+        # Generăm intervalul de date compatibil cu planul Free (următoarele 14 zile)
+        today = datetime.now().strftime("%Y-%m-%d")
+        future_date = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
+
         params = {
             "league": league_id,
-            "next": 10
+            "season": season,
+            "from": today,
+            "to": future_date
         }
         headers = {"x-apisports-key": settings.API_SPORTS_KEY}
 
