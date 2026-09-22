@@ -19,12 +19,12 @@ if not os.path.exists("data"):
 
 csv_path = "data/historical_matches.csv"
 
-# 2. Recreăm fișierul de date istorice cu toate coloanele necesare (inclusiv 'date')
+# 2. Recreăm fișierul dacă lipsește coloana 'home_win'
 should_create = True
 if os.path.exists(csv_path):
     try:
         df_check = pd.read_csv(csv_path)
-        if 'date' in df_check.columns:
+        if 'home_win' in df_check.columns:
             should_create = False
     except Exception:
         pass
@@ -50,6 +50,7 @@ if should_create:
         "ftag": [1, 1, 2, 0, 2, 0, 1, 1, 1, 2, 0, 1, 0, 1, 1],
         "result": ["H", "D", "A", "H", "A", "H", "A", "D", "H", "A", "H", "H", "H", "A", "H"],
         "ftr": ["H", "D", "A", "H", "A", "H", "A", "D", "H", "A", "H", "H", "H", "A", "H"],
+        "home_win": [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
         "home_odds": [1.8, 3.2, 2.5, 1.5, 2.1, 1.9, 3.0, 2.4, 1.6, 3.5, 2.0, 1.7, 1.8, 3.1, 1.9],
         "draw_odds": [3.4, 3.1, 3.2, 4.0, 3.3, 3.5, 3.2, 3.1, 3.8, 3.4, 3.3, 3.6, 3.5, 3.2, 3.4],
         "away_odds": [4.2, 2.2, 2.8, 6.0, 3.1, 4.0, 2.3, 2.9, 5.5, 2.1, 3.8, 5.0, 4.3, 2.3, 3.9],
