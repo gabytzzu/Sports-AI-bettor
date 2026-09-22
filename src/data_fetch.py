@@ -128,7 +128,7 @@ class SportsDataFetcher:
         self,
         sport: str = "soccer",
         league: str = "premier_league",
-        season: int = 2025
+        season: int = 2026
     ) -> pd.DataFrame:
         """
         Fetch upcoming fixtures from API.
@@ -239,7 +239,7 @@ class SportsDataFetcher:
             logger.error(f"Error parsing odds: {e}")
             return {}
 
-    def fetch_team_stats(self, team_id: int, season: int = 2025) -> Dict[str, Any]:
+    def fetch_team_stats(self, team_id: int, season: int = 2026) -> Dict[str, Any]:
         """
         Fetch team statistics.
         
