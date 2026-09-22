@@ -11,8 +11,27 @@ from datetime import datetime
 import os
 import sys
 import subprocess
+import pandas as pd
 
-# Antrenare automată folosind mediul Python curent din Streamlit
+# 1. Creăm folderul data și un fișier de date de test dacă nu există
+if not os.path.exists("data"):
+    os.makedirs("data")
+
+if not os.path.exists("data/historical_matches.csv"):
+    # Generăm un set minim de date pentru a permite antrenarea modelului
+    dummy_data = {
+        "home_team": ["Team A", "Team B", "Team C", "Team D"],
+        "away_team": ["Team C", "Team D", "Team A", "Team B"],
+        "home_score": [2, 1, 0, 3],
+        "away_score": [1, 1, 2, 0],
+        "result": ["H", "D", "A", "H"],
+        "home_odds": [1.8, 3.2, 2.5, 1.5],
+        "draw_odds": [3.4, 3.1, 3.2, 4.0],
+        "away_odds": [4.2, 2.2, 2.8, 6.0]
+    }
+    pd.DataFrame(dummy_data).to_csv("data/historical_matches.csv", index=False)
+
+# 2. Rulăm antrenarea dacă modelul nu există încă
 if not os.path.exists("models/sports_model.pkl"):
     subprocess.run([sys.executable, "train_fast.py"])
 
