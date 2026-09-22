@@ -9,10 +9,12 @@ import plotly.graph_objects as go
 from datetime import datetime
 
 import os
+import sys
 import subprocess
 
+# Antrenare automată folosind mediul Python curent din Streamlit
 if not os.path.exists("models/sports_model.pkl"):
-    subprocess.run(["python", "train_fast.py"])
+    subprocess.run([sys.executable, "train_fast.py"])
 
 from config.settings import settings
 from src.logger import setup_logger
