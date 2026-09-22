@@ -4,7 +4,6 @@ Handles fixture data and odds retrieval with caching, retries, and error handlin
 """
 
 import time
-from functools import lru_cache
 from typing import Dict, List, Optional, Any
 import requests
 import pandas as pd
@@ -16,10 +15,8 @@ from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# Base URL corect pentru API-Sports / API-Football
 API_SPORTS_BASE_URL = "https://v3.football.api-sports.io"
 
-# Mapare între denumiri prietenoase de ligi și ID-urile numerice oficiale API-Sports
 LEAGUE_MAPPING = {
     "premier_league": 39,
     "la_liga": 140,
@@ -33,19 +30,11 @@ class APIClient:
     """Robust API client with retry logic and caching."""
 
     def __init__(self, timeout: int = None, max_retries: int = None):
-        """
-        Initialize API client.
-        
-        Args:
-            timeout: Request timeout in seconds
-            max_retries: Maximum retry attempts
-        """
         self.timeout = timeout or settings.REQUEST_TIMEOUT
         self.max_retries = max_retries or settings.MAX_RETRIES
         self.session = self._create_session()
 
     def _create_session(self) -> requests.Session:
-        """Create a session with retry strategy."""
         session = requests.Session()
         retry_strategy = Retry(
             total=self.max_retries,
@@ -59,17 +48,6 @@ class APIClient:
         return session
 
     def get(self, url: str, headers: Dict[str, str] = None, **kwargs) -> Optional[Dict]:
-        """
-        Perform GET request with error handling.
-        
-        Args:
-            url: Request URL
-            headers: Request headers
-            **kwargs: Additional arguments for requests.get()
-            
-        Returns:
-            JSON response or None on error
-        """
         try:
             logger.debug(f"Fetching: {url}")
             response = self.session.get(
@@ -80,17 +58,8 @@ class APIClient:
             )
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout fetching {url}")
-            return None
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"Connection error: {e}")
-            return None
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP error {e}")
-            return None
         except Exception as e:
-            logger.error(f"Unexpected error fetching {url}: {e}")
+            logger.error(f"Error fetching {url}: {e}")
             return None
 
 
@@ -98,33 +67,28 @@ class SportsDataFetcher:
     """Fetch sports data from APIs with caching."""
 
     def __init__(self):
-        """Initialize fetcher with API client."""
         self.api_client = APIClient()
         self._cache = {}
 
     @staticmethod
     def _get_cache_key(func_name: str, *args, **kwargs) -> str:
-        """Generate cache key from function name and arguments."""
         return f"{func_name}_{args}_{sorted(kwargs.items())}"
 
     def _get_cached(self, key: str, ttl: int = None) -> Optional[Any]:
-        """Get value from cache if not expired."""
         ttl = ttl or settings.CACHE_TTL
         if key in self._cache:
             value, timestamp = self._cache[key]
             if time.time() - timestamp < ttl:
-                logger.debug(f"Cache hit: {key}")
                 return value
             else:
                 del self._cache[key]
         return None
 
     def _set_cache(self, key: str, value: Any) -> None:
-        """Store value in cache."""
         if settings.CACHE_ENABLED:
             self._cache[key] = (value, time.time())
 
-def fetch_fixtures(
+    def fetch_fixtures(
         self,
         sport: str = "soccer",
         league: str = "premier_league",
@@ -134,15 +98,12 @@ def fetch_fixtures(
         league_id = LEAGUE_MAPPING.get(league, league)
         cache_key = self._get_cache_key("fixtures", sport, league_id, season)
         
-        # Check cache
         if settings.CACHE_ENABLED:
             cached = self._get_cached(cache_key)
             if cached is not None:
                 return cached
 
         url = f"{API_SPORTS_BASE_URL}/fixtures"
-        
-        # Folosim parametrul 'next': 10 pentru a cere direct următoarele 10 meciuri viitoare
         params = {
             "league": league_id,
             "next": 10
@@ -152,16 +113,11 @@ def fetch_fixtures(
         data = self.api_client.get(url, headers=headers, params=params)
         
         if not data:
-            logger.warning(f"No data returned from API for league {league} (ID: {league_id})")
+            logger.warning(f"No data returned for league {league}")
             return pd.DataFrame()
 
-        # Afișăm în log-uri dacă API-ul a returnat o eroare de limită sau cheie greșită
         if data.get("errors"):
             logger.error(f"API Sports Error: {data.get('errors')}")
-
-        if "response" not in data or not data.get("response"):
-            logger.warning(f"No fixtures in response for league {league} (ID: {league_id})")
-            return pd.DataFrame()
 
         try:
             fixtures = []
@@ -188,21 +144,9 @@ def fetch_fixtures(
             return pd.DataFrame()
 
     def fetch_odds(self, event_id: str, region: str = "us") -> Dict[str, float]:
-        """
-        Fetch betting odds for a specific event.
-        
-        Args:
-            event_id: Unique event identifier
-            region: Region code for odds
-            
-        Returns:
-            Dictionary with odds for different outcomes
-        """
         cache_key = self._get_cache_key("odds", event_id, region)
-        
-        # Check cache
         if settings.CACHE_ENABLED:
-            cached = self._get_cached(cache_key, ttl=1800)  # 30 min TTL for odds
+            cached = self._get_cached(cache_key, ttl=1800)
             if cached is not None:
                 return cached
 
@@ -214,9 +158,7 @@ def fetch_fixtures(
         }
 
         data = self.api_client.get(url, params=params)
-        
         if not data or "bookmakers" not in data:
-            logger.warning(f"No odds data for event {event_id}")
             return {}
 
         try:
@@ -224,47 +166,26 @@ def fetch_fixtures(
             for bookmaker in data.get("bookmakers", []):
                 for market in bookmaker.get("markets", []):
                     for outcome in market.get("outcomes", []):
-                        name = outcome.get("name", "unknown")
-                        price = outcome.get("price", 0.0)
-                        odds_dict[name] = price
-            
-            logger.debug(f"Fetched odds for event {event_id}: {odds_dict}")
+                        odds_dict[outcome.get("name", "unknown")] = outcome.get("price", 0.0)
             self._set_cache(cache_key, odds_dict)
             return odds_dict
-            
         except Exception as e:
             logger.error(f"Error parsing odds: {e}")
             return {}
 
     def fetch_team_stats(self, team_id: int, season: int = 2026) -> Dict[str, Any]:
-        """
-        Fetch team statistics.
-        
-        Args:
-            team_id: Team identifier
-            season: Season year
-            
-        Returns:
-            Dictionary with team stats
-        """
         cache_key = self._get_cache_key("team_stats", team_id, season)
-        
         if settings.CACHE_ENABLED:
             cached = self._get_cached(cache_key)
             if cached is not None:
                 return cached
 
         url = f"{API_SPORTS_BASE_URL}/teams/statistics"
-        params = {
-            "team": team_id,
-            "season": season
-        }
+        params = {"team": team_id, "season": season}
         headers = {"x-apisports-key": settings.API_SPORTS_KEY}
 
         data = self.api_client.get(url, headers=headers, params=params)
-        
         if not data or "response" not in data:
-            logger.warning(f"No stats data for team {team_id}")
             return {}
 
         try:
@@ -276,17 +197,14 @@ def fetch_fixtures(
             return {}
 
     def clear_cache(self) -> None:
-        """Clear the cache."""
         self._cache.clear()
         logger.info("Cache cleared")
 
 
-# Singleton instance
 _fetcher = None
 
 
 def get_fetcher() -> SportsDataFetcher:
-    """Get or create fetcher instance."""
     global _fetcher
     if _fetcher is None:
         _fetcher = SportsDataFetcher()
