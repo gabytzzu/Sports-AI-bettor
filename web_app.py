@@ -13,6 +13,11 @@ import sys
 import subprocess
 import pandas as pd
 
+# Verificare rapidă în interfață dacă cheia este citită
+api_key = os.getenv("FOOTBALL_API_KEY") or st.secrets.get("FOOTBALL_API_KEY")
+if not api_key:
+    st.error("⚠️ Cheia API nu a fost găsită în Environment / Secrets!")
+
 # 1. Ne asigurăm că există directorul data
 if not os.path.exists("data"):
     os.makedirs("data")
